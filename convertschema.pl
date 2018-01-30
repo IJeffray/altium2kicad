@@ -1134,7 +1134,7 @@ EOF
         my $x=($d{'LOCATION.X'}*$f);
 		my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		my $orientation=$d{'ORIENTATION'} || 0;
-        my $size=$fontsize{$d{'FONTID'}}*6;
+        my $size=($fontsize{$d{'FONTID'}||'1'}||10)*6;
         my $name=$d{'TEXT'}||"";  $name=~s/((.\\)+)/\~$1\~/g; $name=~s/(.)\\/$1/g; 
     	$dat.="Text Label $x $y $orientation $size ~\n$name\n" if($d{'TEXT'} ne "");
       }
@@ -1389,7 +1389,7 @@ EOF
         print "WARNING: Port orientation may be incorrect and thus unconnected - ports on the 'left' of wires may need moving and orientation flipping\n";
         my $name=$d{'NAME'}; $name=~s/((.\\)+)/\~$1\~/g; $name=~s/(.)\\/$1/g; 
         my $labeltype="GLabel";
-        my $size=$fontsize{$d{'FONTID'}}*6;
+        my $size=($fontsize{$d{'FONTID'}||'1'}||10)*6;
         $name.="_HARN", $labeltype="HLabel" if ( defined($d{'HARNESSTYPE'}) ); # Annotated bodge for missing harness feature
         $dat.="Text $labeltype $x $y $orientation $size ${shape} ~\n${name}\n";
 	  }
@@ -1410,7 +1410,7 @@ EOF
         $orient = 3, $x+=$distance            if ( $side eq '2' );
         $orient = 1, $x+=$distance, $y+=$relh if ( $side eq '3' );
         $name.="_HARN" if ( defined($d{'HARNESSTYPE'}) ); # Annotated bodge for missing harness feature
-        my $size=$fontsize{$d{'TEXTFONTID'}}*6;
+        my $size=($fontsize{$d{'FONTID'}||'1'}||10)*6;
         $dat.="Text HLabel $x $y ${orient} $size ${shape} ~\n${name}\n";
 	  }
   	  elsif($d{'RECORD'} eq '37') # Entry Wire Line / Bus connector
