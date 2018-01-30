@@ -1484,6 +1484,25 @@ EOF
 		  $dat.="Wire Bus Line\n	$x1 $y1 $x2 $y2\n";
 		}
 	  }
+      elsif($d{'RECORD'} eq '7') #Polygon - bare on sheet - this is a direct duplicate of the polygon code within a component - some restructuring may be possible to avoid this?
+      {
+        #RECORD= 7|OWNERPARTID=   1|OWNERINDEX=3856|AREACOLOR=16711680|ISSOLID=T|LINEWIDTH=1|LOCATIONCOUNT=3|OWNERINDEX=3856|X1=450|X2=460|X3=470|Y1=980|Y2=970|Y3=980|
+        my $lwidth=defined($d{'LINEWIDTH'})?$d{'LINEWIDTH'}*10:10;
+        my $cmpd="P ".($d{'LOCATIONCOUNT'}+1)." 0 1 $lwidth ";
+        my $fill=(defined($d{'ISSOLID'})&&$d{'ISSOLID'} eq 'T')?"F":"N";
+        foreach my $i(1 .. $d{'LOCATIONCOUNT'})
+        {
+          my $x=($d{'X'.$i}*$f)-$relx;
+          my $y=($d{'Y'.$i}*$f)-$rely;
+          ($x,$y)=rotate($x,$y,$partorientation{$globalp});
+          $cmpd.="$x $y ";
+        }
+        my $x=($d{'X1'}*$f)-$relx;
+        my $y=($d{'Y1'}*$f)-$rely;
+        ($x,$y)=rotate($x,$y,$partorientation{$globalp});
+        $cmpd.="$x $y $fill\n";
+        drawcomponent "$cmpd";
+      }
 	  else
 	  {
 	    print "Unhandled Record type without: $d{RECORD}  (#$d{LINENO})\n";
