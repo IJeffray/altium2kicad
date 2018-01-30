@@ -105,8 +105,8 @@ sub uniquify($)
   return $ref;
 }
 
-sub get_f_position(\%$$$$$) {
-    my ($dref, $f, $part_orient, $relx, $rely, $sheety) = @_;
+sub get_f_position(\%$$$$$$) {
+    my ($dref, $f, $part_orient, $relx, $rely, $sheetx, $sheety) = @_;
     my %d = %$dref;
 
     #my $x=($d{'LOCATION.X'}*$f);
@@ -132,6 +132,7 @@ sub get_f_position(\%$$$$$) {
 
     ($x,$y)=rotatepivot($x,$y,$ownrot,$relx,$rely);
     #print "resultx: $x\nresulty: $y\n";
+    $x=$sheetx+$x;
     $y=$sheety-$y;
 
     $x = int($x);
@@ -236,7 +237,9 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'), glob('"*.sch"'), glo
     $sheetformat="$1 $3 $2 portrait" if($sheetformat=~m/(\w+) (\d+) (\d+)/);
   }
   
-  my $sheety=12000; $sheety=$1 if($sheetformat=~m/\w+ \d+ (\d+)/);
+  my $sheety=12200; $sheety=$1 if($sheetformat=~m/\w+ \d+ (\d+)/);
+  $sheety-=200;
+  my $sheetx=200;
 
   my $datetext=strftime("%d %m %Y", localtime($start_time));
 
@@ -481,7 +484,7 @@ EOF
 		my $y=($d{'LOCATION.Y'}*$f)-$rely;
         my $fid=4+$globalf{$globalp}++;
         my $o=($d{'ORIENTATION'}||0)*900;
-		my $size=$fontsize{$d{'FONTID'}}*6;
+        my $size=($fontsize{$d{'FONTID'}||'1'}||10)*6;
         my $value=$d{'TEXT'};
         if ( substr($value,0,1) eq '=' ) # It's an xref - look it up
         {
@@ -494,7 +497,7 @@ EOF
 	  {
 	    #|RECORD=32|LOCATION.X=40|TEXT=U_02cpu_power|OWNERINDEX=42|OWNERPARTID=-1|COLOR=8388608|INDEXINSHEET=-1|LOCATION.Y=240|FONTID=1
 		my $f=$globalf{$globalp}++;
-	    $dat.="F $f \"$d{'TEXT'}\" H ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)."\n";		
+	    $dat.="F $f \"$d{'TEXT'}\" H ".($sheetx+$d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)."\n";		
 	  }
 	  elsif($d{'RECORD'} eq '13') # Line
 	  {
@@ -649,7 +652,7 @@ EOF
 	  }
 	
       elsif($d{'RECORD'} eq '3') # Pin symbol
-	  {
+      {
         #|RECORD=3|OWNERINDEX=1989|ISNOTACCESIBLE=T|INDEXINSHEET=9|OWNERPARTID=1|SYMBOL=1|LOCATION.X=1145|LOCATION.Y=821|SCALEFACTOR=10
         my $x=($d{'LOCATION.X'}*$f)-$relx;
         my $y=($d{'LOCATION.Y'}*$f)-$rely;
@@ -771,7 +774,7 @@ EOF
      	  my $rot=$d{'ORIENTATION'} || $myrot{$fontrotation{$d{'FONTID'}}};
           my $size=$fontsize{$d{'FONTID'}}*6;
 		  my $bold=$fontbold{$d{'FONTID'}}?"12":"0";
-          print OUT "Text Notes ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");
+          print OUT "Text Notes ".($sheetx+$d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");
           #$dat="Text Notes $x ".($sheety-$y)." $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");  
 		}
 		else
@@ -795,7 +798,7 @@ EOF
 	  elsif($d{'RECORD'} eq '29') # Junction
 	  {
 	    #RECORD=29|OWNERPARTID=  -1|OWNERINDEX=   0|LOCATION.X=130|LOCATION.Y=1230|
-		my $px=($d{'LOCATION.X'}*$f);
+        my $px=($sheetx+$d{'LOCATION.X'}*$f);
 		my $py=($sheety-$d{'LOCATION.Y'}*$f);
 		print OUT "Connection ~ $px $py\n";
 	  }
@@ -811,7 +814,7 @@ EOF
 		$OWNERPARTDISPLAYMODE=$d{'DISPLAYMODE'};
 		$OWNERLINENO=$d{'LINENO'};
 		$globalp++;
-		$nextxypos=($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f);
+        $nextxypos=($sheetx+$d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f);
 		$partorientation{$globalp}=$d{'ORIENTATION'}||0;
 		$partorientation{$globalp}+=4 if(defined($d{'ISMIRRORED'}) && $d{'ISMIRRORED'} eq 'T');
         $xypos{$globalp}=$nextxypos ;
@@ -844,7 +847,7 @@ EOF
             $text = $globalparams{lc($paramname)} || $text;
         }
         $text=~s/\~/~~/g; $text=~s/\n/\\n/gs;
-	    $dat="Text Notes ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");
+        $dat="Text Notes ".($sheetx+$d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");
 	  }
 	  elsif($d{'RECORD'} eq '12') # Arc
 	  {
@@ -854,7 +857,7 @@ EOF
 	  elsif($d{'RECORD'} eq '15') # Sheet Symbol
 	  {
 	    #|SYMBOLTYPE=Normal|RECORD=15|LOCATION.X=40|ISSOLID=T|YSIZE=30|OWNERPARTID=-1|COLOR=128|INDEXINSHEE=41|AREACOLOR=8454016|XSIZE=90|LOCATION.Y=230|UNIQUEID=OLXGMUHL
-		$symbol="\$Sheet\nS ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($d{'XSIZE'}*$f)." ".($d{'YSIZE'}*$f);
+        $symbol="\$Sheet\nS ".($sheetx+$d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($d{'XSIZE'}*$f)." ".($d{'YSIZE'}*$f);
 	    #$dat="\$Sheet\nS ".($symbolx)." ".($symboly)." ".($symbolsizex)." ".($d{'YSIZE'}*$f)."\nF0 \"$prevname\" 60\nF1 \"$prevfilename\" 60\n\$EndSheet\n";
         $relx=$d{'LOCATION.X'}*$f;
         $rely=$d{'LOCATION.Y'}*$f;
@@ -880,7 +883,7 @@ EOF
 		my $prevx=undef; my $prevy=undef;
 		foreach my $i(1 .. $d{'LOCATIONCOUNT'})
 		{
-  		  my $x=($d{'X'.$i}*$f);
+          my $x=$sheetx+($d{'X'.$i}*$f);
 		  my $y=$sheety-($d{'Y'.$i}*$f);
     	  $dat.=#"Text Label $x $y 0 60 ~\n$d{LINENO}\n".
 		  "Wire Wire Line\n	$x $y $prevx $prevy\n" if(defined($prevx));
@@ -891,15 +894,15 @@ EOF
 	  elsif($d{'RECORD'} eq '13') # Line
 	  {
 	    #|RECORD=13|ISNOTACCESIBLE=T|LINEWIDTH=1|LOCATION.X=581|CORNER.Y=1103|OWNERPARTID=1|OWNERINDEX=168|CORNER.X=599|COLOR=16711680|LOCATION.Y=1103
-	    $dat.="Wire Wire Line\n	".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)."\n";
-	    $dat.="Wire Wire Line\n	".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($d{'CORNER.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)."\n";
-	    $dat.="Wire Wire Line\n	".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)." ".($d{'CORNER.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)."\n";
-	    $dat.="Wire Wire Line\n	".($d{'CORNER.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($d{'CORNER.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)."\n";
+        $dat.="Wire Wire Line\n ".($sheetx+$d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($sheetx+$d{'LOCATION.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)."\n";
+        $dat.="Wire Wire Line\n ".($sheetx+$d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($sheetx+$d{'CORNER.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)."\n";
+        $dat.="Wire Wire Line\n ".($sheetx+$d{'LOCATION.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)." ".($sheetx+$d{'CORNER.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)."\n";
+        $dat.="Wire Wire Line\n ".($sheetx+$d{'CORNER.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($sheetx+$d{'CORNER.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)."\n";
 	  }
 	  elsif($d{'RECORD'} eq '17') # Power Object
 	  {
 	    #RECORD=17|OWNERPARTID=  -1|OWNERINDEX=   0|LOCATION.X=370|LOCATION.Y=1380|ORIENTATION=1|SHOWNETNAME=T|STYLE=2|TEXT=VCC_1.2V_SW1AB|
-		my $px=($d{'LOCATION.X'}*$f);
+        my $px=($sheetx+$d{'LOCATION.X'}*$f);
 		my $py=($sheety-$d{'LOCATION.Y'}*$f);
 		my $py1=$py+140;
 		my $py2=$py+110;
@@ -1026,7 +1029,7 @@ EOF
 	  elsif($d{'RECORD'} eq '29') # Junction
 	  {
 	    #RECORD=29|OWNERPARTID=  -1|OWNERINDEX=   0|LOCATION.X=130|LOCATION.Y=1230|
-		my $px=($d{'LOCATION.X'}*$f);
+        my $px=($sheetx+$d{'LOCATION.X'}*$f);
 		my $py=($sheety-$d{'LOCATION.Y'}*$f);
 		$dat.="Connection ~ $px $py\n";
 	  }
@@ -1042,7 +1045,7 @@ EOF
 		$OWNERPARTDISPLAYMODE=$d{'DISPLAYMODE'};
 		$OWNERLINENO=$d{'LINENO'};
 		$globalp++;
-		$nextxypos=($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f);
+        $nextxypos=($sheetx+$d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f);
 		$partorientation{$globalp}=$d{'ORIENTATION'}||0;
 		$partorientation{$globalp}+=4 if(defined($d{'ISMIRRORED'}) && $d{'ISMIRRORED'} eq 'T');
         $xypos{$globalp}=$nextxypos ;
@@ -1055,7 +1058,7 @@ EOF
 		my @bezpoints=();
 		foreach my $i(1 .. $d{'LOCATIONCOUNT'})
 		{
-  		  my $x=($d{'X'.$i}*$f);
+          my $x=$sheetx+($d{'X'.$i}*$f);
 		  my $y=$sheety-($d{'Y'.$i}*$f);
 		  push @bezpoints,$x;
 		  push @bezpoints,$y;
@@ -1075,7 +1078,7 @@ EOF
 	  elsif($d{'RECORD'} eq '8') # Ellipse
 	  {
         #RECORD=8|LINENO=10947|OWNERPARTID=0|OWNERINDEX=-42|AREACOLOR=16777215|ISSOLID=T|LINEWIDTH=1|LOCATION.X=148|LOCATION.Y=580|RADIUS=3|SECONDARYRADIUS=3|
-		my $x=($d{'LOCATION.X'}*$f);
+        my $x=$sheetx+($d{'LOCATION.X'}*$f);
 		my $y=$sheety-($d{'LOCATION.Y'}*$f);
         my $radius=int($d{'RADIUS'})*$f;
 		my $secondary=int($d{'SECONDARYRADIUS'})*$f; 
@@ -1095,7 +1098,7 @@ EOF
 	  elsif($d{'RECORD'} eq '11') # Elliptic Arc
 	  {
         #RECORD=11|ENDANGLE=87.556|LINEWIDTH=1|LOCATION.X=170|LOCATION.Y=575|RADIUS=8|RADIUS_FRAC=40116|SECONDARYRADIUS=10|SECONDARYRADIUS_FRAC=917|STARTANGLE=271.258|
-		my $x=($d{'LOCATION.X'}*$f);
+        my $x=$sheetx+($d{'LOCATION.X'}*$f);
 		my $y=$sheety-($d{'LOCATION.Y'}*$f);
         my $radius=int($d{'RADIUS'})*$f;
 		my $secondary=int($d{'SECONDARYRADIUS'})*$f; # Primary and Secondary might be mixed up in the calculation
@@ -1121,7 +1124,7 @@ EOF
 		my $prevx=undef; my $prevy=undef;
 		foreach my $i(1 .. $d{'LOCATIONCOUNT'})
 		{
-  		  my $x=(($d{'X'.$i}||0)*$f);
+          my $x=$sheetx+(($d{'X'.$i}||0)*$f);
 		  my $y=$sheety-(($d{'Y'.$i}||0)*$f);
     	  $dat.="Wire Notes Line\n	$x $y $prevx $prevy\n" if(defined($prevx));
           $prevx=$x;
@@ -1131,7 +1134,7 @@ EOF
 	  elsif($d{'RECORD'} eq '25') #Net Label
 	  {
         #RECORD=25|OWNERPARTID=  -1|OWNERINDEX=   0|LINENO=2658|LOCATION.X=1420|LOCATION.Y=230|TEXT=PMIC_INT_B|
-        my $x=($d{'LOCATION.X'}*$f);
+        my $x=$sheetx+($d{'LOCATION.X'}*$f);
 		my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		my $orientation=$d{'ORIENTATION'} || 0;
         my $size=($fontsize{$d{'FONTID'}||'1'}||10)*6;
@@ -1141,7 +1144,7 @@ EOF
 	  elsif($d{'RECORD'} eq '34') #Designator
 	  {
         #RECORD=34|OWNERPARTID=  -1|OWNERINDEX=  27|LINENO=146|LOCATION.X=600|LOCATION.Y=820|NAME=Designator|OWNERINDEX=27|TEXT=U200|COLOR=8388608|FONTID=3
-	        my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
+        my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheetx, $sheety);
 
 		my $desig="IC"; $desig=$1 if($d{'TEXT'}=~m/^([A-Z]*)/);
 		my $ref=uniquify($d{'TEXT'});
@@ -1164,7 +1167,7 @@ EOF
         {
           if(($d{'NAME'}||"") eq "Comment")
           {
-            my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
+            my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheetx, $sheety);
 
             #$dat.="Text Label $x $y $orientation 70 ~\n$d{TEXT}\n";
             if ( defined($d{'TEXT'}) )
@@ -1188,14 +1191,14 @@ EOF
           }
           elsif(($d{'NAME'}||"") eq "Rule")
           {
-            my $x=(($d{'LOCATION.X'} || 0) *$f);
+            my $x=$sheetx+(($d{'LOCATION.X'}||0)*$f);
             my $y=$sheety-(($d{'LOCATION.Y'}||0)*$f);
             my $o=$d{'ORIENTATION'} || 0;
             $dat.="Text Label $x $y $o 70 ~\n".($d{'DESCRIPTION'}||"")."\n" if(defined($d{'DESCRIPTION'}) && $d{'DESCRIPTION'} ne "");
           }
           elsif(($d{'NAME'}||"") eq "Value")
           {
-              my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
+              my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheetx, $sheety);
               if (defined($d{'TEXT'}))
               {
               my $value = $d{'TEXT'};
@@ -1207,7 +1210,7 @@ EOF
           elsif(defined($d{'LOCATION.X'}) && $d{'LOCATION.Y'} >=0 )
           {
             #print "Field $d{'NAME'} found on line 1093\n";
-            my $x=(($d{'LOCATION.X'}||0)*$f);
+            my $x=$sheetx+(($d{'LOCATION.X'}||0)*$f);
             my $y=$sheety-(($d{'LOCATION.Y'}||0)*$f);
             my $o=$d{'ORIENTATION'} || 0;
             if(defined($d{'TEXT'}))
@@ -1231,7 +1234,7 @@ EOF
         #RECORD=41|OWNERPARTID=  -1|OWNERINDEX=2659|ISHIDDEN=T|LINENO=2661|LOCATION.X=1400|LOCATION.Y=260|NAME=PinUniqueId|OWNERINDEX=2659|TEXT=DXTGJKVR|
 		if(defined($d{'LOCATION.X'}))
 		{
-          my $x=($d{'LOCATION.X'}*$f);
+          my $x=$sheetx+($d{'LOCATION.X'}*$f);
 		  my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		  my $o=$d{'ORIENTATION'} || 0;
     	  $dat.="Text Label $x $y $o 70 ~\n$d{NAME}\n";
@@ -1246,7 +1249,7 @@ EOF
         #RECORD=22|OWNERPARTID=  -1|OWNERINDEX=   0|ISACTIVE=T|LINENO=1833|LOCATION.X=630|LOCATION.Y=480|SUPPRESSALL=T|SYMBOL=Thin Cross|
         if(defined($d{'LOCATION.X'}))
         {
-          my $x=($d{'LOCATION.X'}*$f);
+          my $x=$sheetx+($d{'LOCATION.X'}*$f);
 		  my $y=$sheety-($d{'LOCATION.Y'}*$f);
     	  $dat.="NoConn ~ $x $y\n";
         }
@@ -1258,10 +1261,10 @@ EOF
 	  elsif($d{'RECORD'} =~m/^(10|14)$/) # Rectangle
 	  {
 	    #RECORD=14|OWNERPARTID=   8|OWNERINDEX=  27|AREACOLOR=11599871|CORNER.X=310|CORNER.Y=1370|ISSOLID=T|LINEWIDTH=2|LOCATION.X=140|LOCATION.Y=920|OWNERINDEX=27|TRANSPARENT=T|
-		my $x=($d{'LOCATION.X'}*$f);
+        my $x=$sheetx+($d{'LOCATION.X'}*$f);
 		my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		#($x,$y)=rotate($x,$y,$partorientation{$globalp});
-		my $cx=($d{'CORNER.X'}*$f);
+        my $cx=$sheetx+($d{'CORNER.X'}*$f);
 		my $cy=$sheety-($d{'CORNER.Y'}*$f);
 		#($cx,$cy)=rotate($cx,$cy,$partorientation{$globalp});
 	    $dat.="Wire Notes Line\n	$x $y $x $cy\n";
@@ -1273,10 +1276,10 @@ EOF
 	  elsif($d{'RECORD'} eq '30') # Image
 	  {
 	    #RECORD=30|CORNER.X=810|CORNER.X_FRAC=39800|CORNER.Y=59|CORNER.Y_FRAC=99999|FILENAME=C:\largework\electrical\rdtn\cc-logo.tif|KEEPASPECT=T|LINENO=3428|LOCATION.X=790|LOCATION.Y=40|
-		my $x=($d{'LOCATION.X'}*$f);
+        my $x=$sheetx+($d{'LOCATION.X'}*$f);
 		my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		#($x,$y)=rotate($x,$y,$partorientation{$globalp});
-		my $cx=($d{'CORNER.X'}*$f);
+        my $cx=$sheetx+($d{'CORNER.X'}*$f);
 		my $cy=$sheety-($d{'CORNER.Y'}*$f);
 		my $mx=int(($x+$cx)/2);
 		my $widthx=abs($x-$cx);
@@ -1333,19 +1336,19 @@ EOF
 	  elsif($d{'RECORD'} eq '28' || $d{'RECORD'} eq '209') # Text Frame
 	  {
         sub min ($$) { $_[$_[0] > $_[1]] }
-  		my $x=($d{'LOCATION.X'}*$f);
+        my $x=$sheetx+($d{'LOCATION.X'}*$f);
 		my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		#my $x=($d{'LOCATION.X'}*$f)-$relx;
 		#my $y=($d{'LOCATION.Y'}*$f)-$rely;
         #($x,$y)=rotate($x,$y,$partorientation{$globalp});
-		my $cx=($d{'CORNER.X'}*$f);
+        my $cx=$sheetx+($d{'CORNER.X'}*$f);
 		my $cy=$sheety-($d{'CORNER.Y'}*$f);
 		#($cx,$cy)=rotate($cx,$cy,$partorientation{$globalp});
         my $text=$d{'TEXT'}; $text=~s/\~1/  /g; $text=~s/ /\~/g if ( ($d{'WORDWRAP'}||'N') eq 'N' );
         my $o=$d{'ORIENTATION'} || 0;
         $x=$x<$cx?$x:$cx;
         $y=$y<$cy?$y:$cy;
-        my $size=$fontsize{$d{'FONTID'}}*6;
+        my $size=($fontsize{$d{'FONTID'}||'1'}||10)*6;
    	    $dat.="Text Label $x $y $o $size ~\n$text\n";
 		#drawcomponent "T 0 $x $y 100 0 1 1 $text 1\n";
 		#!!! Line-break, Alignment, ...
@@ -1381,7 +1384,7 @@ EOF
         #RECORD=18|INDEXINSHEET=75|OWNERPARTID=-1|STYLE=3|IOTYPE=1|ALIGNMENT=1|WIDTH=60|LOCATION.X=510|LOCATION.Y=990|COLOR=128|FONTID=1|AREACOLOR=8454143|TEXTCOLOR=128|NAME=ADC_VIN|UNIQUEID=ANXOUWEQ|HEIGHT=10
         #RECORD=18|INDEXINSHEET=73|OWNERPARTID=-1|STYLE=3|ALIGNMENT=1|WIDTH=45|LOCATION.X=625|LOCATION.Y=325|COLOR=128|FONTID=1|AREACOLOR=8454143|TEXTCOLOR=128|NAME=GPIO_IF|HARNESSTYPE=GPIO|UNIQUEID=RNYSNNOD|HEIGHT=10
         # No support for HARNESSTYPE yet (KiCad doesn't have such a feature)  We could instantiate lots of Ports as per the .Hardness file definition, but how would we lay them out?
-        my $x=($d{'LOCATION.X'}*$f);
+        my $x=$sheetx+($d{'LOCATION.X'}*$f);
         my $y=$sheety-($d{'LOCATION.Y'}*$f);
         my $orientation=($d{'ALIGNMENT'}||0)>2 ? 0:2; # Altium seems to ignore this for harnesses?
         my $shape=$iotypes{$d{'IOTYPE'} || 0 }; # Altium never seems to write out IOTYPE=0 for BiDi's
@@ -1398,7 +1401,7 @@ EOF
         # RECORD=16|OWNERINDEX=70|OWNERPARTID=-1|SIDE=1|DISTANCEFROMTOP=4|DISTANCEFROMTOP_FRAC1=500000|COLOR=128|AREACOLOR=8454143|TEXTCOLOR=128|TEXTFONTID=1|TEXTSTYLE=Full|NAME=POR|UNIQUEID=WKEEFSHT|IOTYPE=1|STYLE=3|ARROWKIND=Block & Triangle
         # RECORD=16|OWNERINDEX=77|OWNERPARTID=-1|SIDE=1|DISTANCEFROMTOP=21|COLOR=128|AREACOLOR=8454143|TEXTCOLOR=128|TEXTFONTID=1|TEXTSTYLE=Full|NAME=Ethernet_IF|HARNESSTYPE=Ethernet|UNIQUEID=TVQYSGEL|STYLE=3|ARROWKIND=Block & Triangle
         # Sides are: 0=left, 1=right, 2=top, 3=bottom - only left/right tested
-        my $x=$relx;
+        my $x=$sheetx+$relx;
         my $y=$sheety-$rely;
         my $distance=(($d{'DISTANCEFROMTOP'}||0)*10+($d{'DISTANCEFROMTOP_FRAC1'}||0)/100000.0)*$f;
         my $side=$d{'SIDE'}||0;
@@ -1415,9 +1418,9 @@ EOF
 	  }
   	  elsif($d{'RECORD'} eq '37') # Entry Wire Line / Bus connector
 	  {
-		my $x1=($d{'LOCATION.X'}*$f);
+        my $x1=$sheetx+($d{'LOCATION.X'}*$f);
 		my $y1=$sheety-($d{'LOCATION.Y'}*$f);
-  		my $x2=($d{'CORNER.X'}*$f);
+        my $x2=$sheetx+($d{'CORNER.X'}*$f);
 		my $y2=$sheety-($d{'CORNER.Y'}*$f);
 		$dat.="Entry Wire Line\n 	$x1 $y1 $x2 $y2\n";
 	  }
@@ -1426,9 +1429,9 @@ EOF
 	    #|RECORD=26|INDEXINSHEET=606|OWNERPARTID=-1|LINEWIDTH=2|COLOR=8388608|LOCATIONCOUNT=2|X1=270|Y1=860|X2=215|Y2=860
 		foreach my $i(1 .. $d{'LOCATIONCOUNT'}-1)
 		{
-  		  my $x1=($d{'X'.$i}*$f);
+          my $x1=$sheetx+($d{'X'.$i}*$f);
 		  my $y1=$sheety-($d{'Y'.$i}*$f);
-  		  my $x2=($d{'X'.($i+1)}*$f);
+          my $x2=$sheetx+($d{'X'.($i+1)}*$f);
 		  my $y2=$sheety-($d{'Y'.($i+1)}*$f);
 		  $dat.="Wire Bus Line\n	$x1 $y1 $x2 $y2\n";
 		}
