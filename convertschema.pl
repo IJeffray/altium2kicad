@@ -662,6 +662,54 @@ EOF
             # A 'Not' symbol - a small circle
             drawcomponent "C $x $y ".(($d{'SCALEFACTOR'}||10)*$f/5.0)." 0 1 10 N\n";
         }
+        elsif ( $d{'SYMBOL'} eq '28' )
+        {
+            # An 'OR' gate body - no input or output legs.
+            my $sf=($d{'SCALEFACTOR'}||1)*$f;
+            my $xp=$x-int($pi*$sf);
+            my $yp=$y;
+            my $r=4*$sf;
+            my $sa=-450;
+            my $ea=450;
+            my $sarad=$sa/1800*$pi;
+            my $earad=$ea/1800*$pi;
+            my $x1=int($xp+cos($sarad)*$r);
+            my $x2=int($xp+cos($earad)*$r);
+            my $y1=int($yp+sin($sarad)*$r);
+            my $y2=int($yp+sin($earad)*$r);
+            my $x3=int(1.5*$sf)+$x1;
+            drawcomponent "A $xp $yp $r $sa $ea 1 1 $d{LINEWIDTH}0 N $x1 $y1 $x2 $y2\n";
+            drawcomponent "P 2 0 1 $d{LINEWIDTH}0 $x1 $y2 $x3 $y2 N\n";
+            drawcomponent "P 2 0 1 $d{LINEWIDTH}0 $x1 $y1 $x3 $y1 N\n";
+            {
+                $ea=-900;
+                $sa=-330;
+                $xp=$x3;
+                $yp=$y2+int(0.1*$pi*$sf);
+                $r=6*$sf;
+                my $sarad=$sa/1800*$pi;
+                my $earad=$ea/1800*$pi;
+                my $x1=int($xp+cos($sarad)*$r);
+                my $x2=int($xp+cos($earad)*$r);
+                my $y1=int($yp+sin($sarad)*$r);
+                my $y2=int($yp+sin($earad)*$r);
+                drawcomponent "A $xp $yp $r $sa $ea 1 1 $d{LINEWIDTH}0 N $x1 $y1 $x2 $y2\n";
+            }
+            {
+                $ea=900;
+                $sa=330;
+                $xp=$x3;
+                $yp=$y1-int(0.1*$pi*$sf);
+                $r=6*$sf;
+                my $sarad=$sa/1800*$pi;
+                my $earad=$ea/1800*$pi;
+                my $x1=int($xp+cos($sarad)*$r);
+                my $x2=int($xp+cos($earad)*$r);
+                my $y1=int($yp+sin($sarad)*$r);
+                my $y2=int($yp+sin($earad)*$r);
+                drawcomponent "A $xp $yp $r $sa $ea 1 1 $d{LINEWIDTH}0 N $x1 $y1 $x2 $y2\n";
+            }
+        }
         else
         {
             print "WARNING: Pin symbol type $d{'SYMBOL'} not understood - IGNORING!\n";
