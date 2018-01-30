@@ -884,18 +884,21 @@ EOF
 	  if($d{'RECORD'} eq '4') # Label
 	  {
 	    #|RECORD=4|LOCATION.X=40|TEXT=I2C mappings:|OWNERPARTID=-1|INDEXINSHEET=26|COLOR=8388608|LOCATION.Y=500|FONTID=3
+        my $px=$sheetx+($d{'LOCATION.X'}*$f);
+        my $py=$sheety-($d{'LOCATION.Y'}*$f);
 		my $size=$fontsize{$d{'FONTID'}}*6;
 		my $bold=$fontbold{$d{'FONTID'}}?"12":"0";
 		my $rot=$d{'ORIENTATION'} || $myrot{$fontrotation{$d{'FONTID'}}};
 		#print "FONTROT: $fontrotation{$d{'FONTID'}}\n" if($text=~m/0xA/);
 		my $text=$d{'TEXT'}||"";
+        $px-=int(($size/1.5)*length $text) if ((($d{'JUSTIFICATION'}||0) eq '2') && (lc($d{'ISMIRRORED'}||'n') eq 't'));  # Rough attempt at right-justified text handling
         if ( substr($text,0,1) eq '=' ) # It's an xref - look it up
         {
             my $paramname = substr($text,1);
             $text = $globalparams{lc($paramname)} || $text;
         }
         $text=~s/\~/~~/g; $text=~s/\n/\\n/gs;
-        $dat="Text Notes ".($sheetx+$d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");
+        $dat="Text Notes $px $py $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");
 	  }
 	  elsif($d{'RECORD'} eq '12') # Arc
 	  {
