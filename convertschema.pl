@@ -671,9 +671,9 @@ EOF
 	  {
         #RECORD=5|OWNERINDEX=183|ISNOTACCESIBLE=T|INDEXINSHEET=12|OWNERPARTID=1|LINEWIDTH=1|COLOR=16711680|LOCATIONCOUNT=2|X1=464|Y1=943|X2=466|Y2=946
         #RECORD= 6|OWNERPARTID=   1|OWNERINDEX=1468|LINEWIDTH=1|LOCATIONCOUNT=2|OWNERINDEX=1468|X1=440|X2=440|Y1=1210|Y2=1207|
-        print "WARNING: Bezier paths are not supported in KiCad - creating a basic polyline through the control points instead\n" if ( $d{'RECORD'} eq '5' );
+        my $type=$d{'RECORD'} eq '5' ? 'B':'P';
 		my $fill=(defined($d{'ISSOLID'})&&$d{'ISSOLID'} eq 'T')?"F":"N";
-		my $cmpd="P ".($d{'LOCATIONCOUNT'}||0)." 0 1 ".($d{'LINEWIDTH'}||1)."0 ";
+		my $cmpd="$type ".($d{'LOCATIONCOUNT'}||0)." 0 1 ".($d{'LINEWIDTH'}||1)."0 ";
 		foreach my $i(1 .. $d{'LOCATIONCOUNT'})
 		{
   		  my $x=($d{'X'.$i}*$f)-$relx;
