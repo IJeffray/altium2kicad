@@ -54,6 +54,7 @@ our $timestamp=$start_time;  # this value gets decreased every time we need a un
 my %hvmap=("0"=>"H","1"=>"V","2"=>"H","3"=>"V");
 our %uniquereferences=();
 my %myrot=("0"=>"0","90"=>"1","270"=>"2");
+my %partorient=("0"=>"1    0    0    -1","3"=>"0    1    1    0","2"=>"-1   0    0    1","1"=>"0    -1   -1   0", "4"=>"-1    0    0    -1","5"=>"0    -1    1    0","6"=>"1   0    0    1","7"=>"0    1   -1   0");
 my %iotypes=("0"=>"BiDi","1"=>"Output","2"=>"Input","3"=>"BiDi"); # Others unknown yet (0 is really 'unspecified' in Altium)
 my %partparams=();
 
@@ -139,7 +140,7 @@ sub get_f_position(\%$$$$$$) {
     $y = int($y);
 
     my $orient = $hvmap{$orientation};
-    my $dir = mapDir($ownrot2,$d{'ISMIRRORED'},0);
+    my $dir = mapDir($ownrot2,$d{'ISMIRRORED'},$d{'JUSTIFICATION'});
     return ($x, $y, $orient, $dir);
 }
 
@@ -380,12 +381,15 @@ EOF
   
   sub mapDir($$$)
   {
-    my $mirrored=defined($_[1])?$_[1]:0;
-	my $debug=$_[2];
+    my $rot=$_[0];
+    my $mirrored=$_[1]||0;
+    my $just=$_[2]||1;
+    $mirrored=1-$mirrored if ( $just eq '2' );
     my %dirmap=("0"=>"L BNN","1"=>"R TNN","2"=>"R TNN","3"=>"L BNN");
     my %dirmapmirrored=("0"=>"R BNN","1"=>"L TNN","2"=>"L TNN","3"=>"R BNN");
-	#print "Mapping $_[0] (Mirror: $mirrored) to: ".($mirrored? $dirmapmirrored{$_[0]}:$dirmap{$_[0]})."\n" if($debug);
-	return $mirrored?$dirmapmirrored{$_[0]}:$dirmap{$_[0]};
+	my $dmap=$mirrored?$dirmapmirrored{$rot}:$dirmap{$rot};
+    $dmap='C'.substr($dmap,1) if( $just eq '4' );
+    return $dmap;
   }
   
   my %globalparams=();
@@ -892,6 +896,7 @@ EOF
 		#print "FONTROT: $fontrotation{$d{'FONTID'}}\n" if($text=~m/0xA/);
 		my $text=$d{'TEXT'}||"";
         $px-=int(($size/1.5)*length $text) if ((($d{'JUSTIFICATION'}||0) eq '2') && (lc($d{'ISMIRRORED'}||'n') eq 't'));  # Rough attempt at right-justified text handling
+        $px-=int(($size/1.5)*length $text) if ((($d{'JUSTIFICATION'}||0) eq '2') && (lc($d{'ISMIRRORED'}||'n') eq 't'));  # Rough attempt at right-justified text handling
         if ( substr($text,0,1) eq '=' ) # It's an xref - look it up
         {
             my $paramname = substr($text,1);
@@ -955,8 +960,9 @@ EOF
 	    #RECORD=17|OWNERPARTID=  -1|OWNERINDEX=   0|LOCATION.X=370|LOCATION.Y=1380|ORIENTATION=1|SHOWNETNAME=T|STYLE=2|TEXT=VCC_1.2V_SW1AB|
         my $px=($sheetx+$d{'LOCATION.X'}*$f);
 		my $py=($sheety-$d{'LOCATION.Y'}*$f);
-		my $py1=$py+140;
-		my $py2=$py+110;
+		my $oy1=160;
+		my $oy2=130;
+        my $orient=(($d{'ORIENTATION'}||0)+3)%4;
 		my $text=$d{'TEXT'};
 	    my $SHOWNETNAME=$d{'SHOWNETNAME'}?"0000":"00001";
 		my $ts=uniqueid2timestamp($d{'UNIQUEID'});
@@ -1055,24 +1061,34 @@ EOF
 		  
 		}
 		
-		if(defined($d{'STYLE'}) && ($d{'STYLE'}eq"1" || $d{'STYLE'}eq"2"))
-		{
-		  $PWR="L $device #PWR?$ts"; # $ts";
-		  $py1=$py;
-		  $py2=$py-70;
-		}
+		$PWR="L $device #PWR?$ts"; # $ts";
         $text=uniquify($text);
+
+        # Oh dear... GNDs (identified more sanely by ...?) seem upsidewards - compensate
+        if ( $voltage eq "GND" )
+        {
+            $orient=($orient+2)%4;
+            $oy1=-$oy1;
+            $oy2=-$oy2;
+        }
+
+        my $rot=$orient%2 == 0 ? 'H' : 'V'; # Rotate the text so it always appears horizontal
+        my $py1=$py+(($rot eq 'H') ? $oy1 : 0);
+        my $py2=$py+(($rot eq 'H') ? $oy2 : 0);
+        my $px1=$px+(($rot eq 'V') ? $oy1 : 0);
+        my $px2=$px+(($rot eq 'V') ? $oy2 : 0);
+
         print OUT <<EOF
 \$Comp
 $PWR
 U 1 1 $ts
 P $px $py
-F 0 "$text" H $px $py1 20  $SHOWNETNAME C CNN
-F 1 "+$voltage" H $px $py2 30  0000 C CNN
+F 0 "$text" $rot $px1 $py1 20  $SHOWNETNAME C CNN
+F 1 "+$voltage" $rot $px2 $py2 30  0000 C CNN
 F 2 "" H $px $py 70  0000 C CNN
 F 3 "" H $px $py 70  0000 C CNN
 	1    $px $py
-	1    0    0    -1  
+	$partorient{$orient}
 \$EndComp
 EOF
 ;
@@ -1526,10 +1542,7 @@ EOF
     print OUT "P $xypos{$part}\n";
     print OUT $_ foreach(sort @{$parts{$part}});
 	print OUT "\t1    $xypos{$part}\n";
-	my %orient=("0"=>"1    0    0    -1","3"=>"0    1    1    0","2"=>"-1   0    0    1","1"=>"0    -1   -1   0",
-	            "4"=>"-1    0    0    -1","5"=>"0    -1    1    0","6"=>"1   0    0    1","7"=>"0    1   -1   0");
-		
-	print OUT "\t".$orient{$partorientation{$part}}."\n";
+	print OUT "\t".$partorient{$partorientation{$part}}."\n";
 	print OUT "\$EndComp\n";
 	$ICcount++;
   }  
